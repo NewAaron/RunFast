@@ -8,7 +8,7 @@
     <version>0.0.1-SNAPSHOT</version>
     <packaging>jar</packaging>
     <name>guanpai</name>
-    <description>关牌（跑得快）三人卡牌游戏</description>
+    <description>关牌（跑得快）</description>
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
