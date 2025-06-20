@@ -1,0 +1,1071 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>关牌</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f0f0f0;
+            margin: 0;
+            padding: 10px;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+        #lobby, #game {
+            margin: 10px;
+            padding: 15px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            width: 90%;
+            max-width: 600px;
+            box-sizing: border-box;
+        }
+        #hand {
+            margin-top: 15px;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 5px;
+        }
+        .card {
+            border: 1px solid #aaa;
+            border-radius: 6px;
+            width: 60px;
+            height: 90px;
+            margin: 3px;
+            padding: 4px;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 16px;
+            font-weight: bold;
+            background-color: white;
+            box-shadow: 1px 1px 3px rgba(0,0,0,0.2);
+            position: relative;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .card.selected {
+            border-color: #007bff;
+            box-shadow: 0 0 8px rgba(0,123,255,0.5);
+            transform: translateY(-5px);
+        }
+        .card .rank {
+            font-size: 20px;
+        }
+        .card .suit {
+            font-size: 18px;
+        }
+        .card .top-left, .card .bottom-right {
+            position: absolute;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .card .top-left {
+            top: 4px;
+            left: 4px;
+        }
+        .card .bottom-right {
+            bottom: 4px;
+            right: 4px;
+            transform: rotate(180deg);
+        }
+        .suit-♠, .suit-♣ { color: black; }
+        .suit-♥, .suit-♦ { color: red; }
+
+        .card .center {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 24px;
+        }
+
+        #table, #status, #actions, #readyArea {
+            margin-top: 15px;
+            text-align: center;
+            width: 100%;
+        }
+        
+        #table {
+            min-height: 100px;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+            border: 1px dashed #ccc;
+            border-radius: 8px;
+            padding: 10px;
+            background-color: #f9f9f9;
+        }
+        
+        #playerInfo {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+        }
+        
+        .player-card {
+            text-align: center;
+            padding: 8px;
+            border-radius: 4px;
+            margin: 5px;
+            background-color: #f0f0f0;
+            width: 30%;
+        }
+        
+        .player-card.active {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            animation: pulse 1.5s infinite;
+        }
+        
+        #actions button, #readyArea button {
+            padding: 8px 12px;
+            margin: 5px;
+            border-radius: 4px;
+            border: none;
+            background-color: #007bff;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s, transform 0.2s;
+        }
+        #actions button:hover, #readyArea button:hover { 
+            background-color: #0056b3; 
+            transform: translateY(-2px);
+        }
+        #actions button:disabled, #readyArea button:disabled { 
+            background-color: #ccc; 
+            cursor: not-allowed; 
+            transform: none;
+        }
+        input[type="text"] {
+            padding: 8px;
+            margin-right: 5px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            width: calc(100% - 18px);
+            box-sizing: border-box;
+        }
+        #lobby button {
+            padding: 8px 12px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-left: 0;
+            margin-top: 5px;
+            width: 100%;
+            box-sizing: border-box;
+            transition: background-color 0.3s, transform 0.2s;
+        }
+        #lobby button:hover { 
+            background-color: #1e7e34;
+            transform: translateY(-2px);
+        }
+        #currentPlayer, #roomId, #playerId { font-weight: bold; }
+        #readyStatus { margin-left: 10px; font-style: italic; }
+        
+        .your-turn-alert {
+            animation: pulse 1.5s infinite;
+            font-weight: bold;
+            font-size: 1.2em;
+            color: #ff5722;
+            text-shadow: 0 0 5px rgba(255, 87, 34, 0.3);
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            background-color: #fff3e0;
+            border-left: 4px solid #ff5722;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.8; transform: scale(1.05); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+        
+        .current-player-indicator {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            background-color: #4CAF50;
+            color: white;
+            font-weight: bold;
+            animation: glow 2s infinite;
+        }
+        
+        @keyframes glow {
+            0% { box-shadow: 0 0 5px #4CAF50; }
+            50% { box-shadow: 0 0 15px #4CAF50; }
+            100% { box-shadow: 0 0 5px #4CAF50; }
+        }
+        
+        .table-card {
+            width: 40px;
+            height: 60px;
+            margin: 3px;
+            font-size: 14px;
+        }
+        
+        .card-placeholder {
+            width: 60px;
+            height: 90px;
+            margin: 3px;
+            border: 1px dashed #ccc;
+            border-radius: 6px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #aaa;
+        }
+        
+        #gameInfo {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            text-align: center;
+        }
+        
+        #loadingOverlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            color: white;
+            font-size: 20px;
+            flex-direction: column;
+        }
+        
+        .spinner {
+            border: 4px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top: 4px solid white;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin-bottom: 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Media Queries for responsiveness */
+        @media (max-width: 600px) {
+            body {
+                padding: 5px;
+            }
+            #lobby, #game {
+                margin: 5px;
+                padding: 10px;
+            }
+            .card {
+                width: 50px;
+                height: 75px;
+                font-size: 14px;
+            }
+            .card .rank {
+                font-size: 16px;
+            }
+            .card .suit {
+                font-size: 14px;
+            }
+            .card .center {
+                font-size: 20px;
+            }
+            #actions button, #readyArea button, #lobby button {
+                font-size: 13px;
+                padding: 7px 10px;
+            }
+            input[type="text"] {
+                font-size: 14px;
+            }
+            .table-card {
+                width: 35px;
+                height: 50px;
+                font-size: 12px;
+            }
+        }
+
+        @media (max-width: 400px) {
+            .card {
+                width: 40px;
+                height: 60px;
+                font-size: 12px;
+            }
+            .card .rank {
+                font-size: 14px;
+            }
+            .card .suit {
+                font-size: 12px;
+            }
+            .card .center {
+                font-size: 16px;
+            }
+            #actions button, #readyArea button, #lobby button {
+                font-size: 12px;
+                padding: 6px 8px;
+            }
+            .table-card {
+                width: 30px;
+                height: 45px;
+                font-size: 10px;
+            }
+            .player-card {
+                font-size: 12px;
+                padding: 5px;
+            }
+        }
+    </style>
+</head>
+<body>
+<div id="lobby">
+    <h2>三人卡牌游戏</h2>
+    <input id="playerIdInput" placeholder="玩家ID">
+    <input id="roomIdInput" placeholder="房间号">
+    <button onclick="createRoom()">创建房间</button>
+    <button onclick="joinRoom()">加入房间</button>
+</div>
+
+<div id="game" style="display:none;">
+    <div id="gameInfo">
+        <div>房间号: <span id="roomId"></span></div>
+        <div>玩家ID: <span id="playerId"></span></div>
+    </div>
+    
+    <div id="playerInfo">
+        <!-- 玩家信息将在JS中生成 -->
+    </div>
+    
+    <div id="yourTurnAlert" style="display:none;" class="your-turn-alert">轮到你出牌了！</div>
+    
+    <div id="table">
+        <!-- 桌面牌区域 -->
+        <div class="card-placeholder">牌桌</div>
+    </div>
+    
+    <div id="hand">
+        <!-- 手牌区域 -->
+    </div>
+    
+    <div id="actions" style="margin-top: 20px;">
+        <button id="playBtn" onclick="playCards()" disabled>出牌</button>
+        <button id="passBtn" onclick="pass()" disabled>PASS</button>
+    </div>
+    
+    <div id="readyArea" style="display:none; margin-top:20px;">
+        <button id="readyBtn" onclick="readyGame()">准备</button>
+        <span id="readyStatus"></span>
+    </div>
+    
+    <div id="status"></div>
+</div>
+
+<div id="loadingOverlay" style="display:none;">
+    <div class="spinner"></div>
+    <div id="loadingText">连接中...</div>
+</div>
+
+<script>
+let ws, playerId, roomId, hand = [], selected = [], currentPlayerId = null, readyCount = 0;
+let players = [];
+let gameStarted = false;
+
+function showLoading(text = "连接中...") {
+    document.getElementById('loadingOverlay').style.display = 'flex';
+    document.getElementById('loadingText').innerText = text;
+}
+
+function hideLoading() {
+    document.getElementById('loadingOverlay').style.display = 'none';
+}
+
+function createRoom() {
+    const inputPlayerId = document.getElementById('playerIdInput').value;
+    if (!inputPlayerId) { alert('请填写玩家ID'); return; }
+    
+    playerId = inputPlayerId;
+    showLoading("创建房间中...");
+    connectWS();
+    
+    ws.onopen = () => {
+        ws.send(JSON.stringify({action: 'createRoom', playerId}));
+    };
+}
+
+function joinRoom() {
+    const inputRoomId = document.getElementById('roomIdInput').value;
+    if (!inputRoomId) { alert('请填写房间号'); return; }
+    
+    const inputPlayerId = document.getElementById('playerIdInput').value;
+    if (!inputPlayerId) { alert('请填写玩家ID'); return; }
+    
+    roomId = inputRoomId;
+    playerId = inputPlayerId;
+    
+    showLoading("加入房间中...");
+    connectWS();
+    
+    ws.onopen = () => {
+        ws.send(JSON.stringify({action: 'joinRoom', roomId, playerId}));
+    };
+}
+
+function connectWS() {
+    ws = new WebSocket('ws://' + location.host + '/ws');
+    
+    ws.onmessage = handleMessage;
+    
+    ws.onclose = () => {
+        alert('连接已关闭，请刷新页面重试');
+        hideLoading();
+    };
+    
+    ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+        alert('连接错误，请刷新页面重试');
+        hideLoading();
+    };
+}
+
+function handleMessage(msg) {
+    const data = JSON.parse(msg.data);
+    console.log('Received:', data);
+    
+    switch(data.type) {
+        case 'room':
+            handleRoomMessage(data);
+            break;
+        case 'hand':
+            handleHandMessage(data);
+            break;
+        case 'table':
+            handleTableMessage(data);
+            break;
+        case 'status':
+            handleStatusMessage(data);
+            break;
+        case 'ready':
+            handleReadyMessage(data);
+            break;
+        case 'currentPlayer':
+            handleCurrentPlayerMessage(data);
+            break;
+        case 'playerList':
+            handlePlayerListMessage(data);
+            break;
+        case 'gameStart':
+            handleGameStartMessage(data);
+            break;
+        case 'gameOver':
+            handleGameOverMessage(data);
+            break;
+        case 'error':
+            handleErrorMessage(data);
+            break;
+        case 'pass':
+            handlePassMessage(data);
+            break;
+        default:
+            console.log('Unknown message type:', data.type);
+    }
+    
+    hideLoading();
+}
+
+function handleRoomMessage(data) {
+    roomId = data.roomId;
+    playerId = data.playerId;
+    document.getElementById('lobby').style.display = 'none';
+    document.getElementById('game').style.display = '';
+    document.getElementById('roomId').innerText = roomId;
+    document.getElementById('playerId').innerText = playerId;
+    
+    // 初始化禁用出牌和PASS按钮
+    updateButtonState(false);
+    
+    // 隐藏轮到出牌提示
+    document.getElementById('yourTurnAlert').style.display = 'none';
+    
+    // 初始化玩家信息
+    players = [{id: playerId, name: playerId}];
+    updatePlayerInfo();
+}
+
+function handleHandMessage(data) {
+    // 打印收到的手牌数据
+    console.log('收到手牌数据:', data.cards);
+    
+    // 确保手牌是字符串数组
+    hand = Array.isArray(data.cards) ? data.cards : [];
+    
+    // 确认手牌数据正确性
+    console.log('处理后的手牌数据:', hand);
+    
+    // 检查是否包含黑桃3
+    const hasSpade3 = hand.some(card => {
+        const match = card.match(/([♠♥♣♦])([2-9JQKA]|10)/);
+        if (match) {
+            return match[1] === '♠' && match[2] === '3';
+        }
+        return false;
+    });
+    
+    console.log('手牌中包含黑桃3:', hasSpade3);
+    
+    // 清空已选择的牌
+    selected = [];
+    
+    // 渲染手牌
+    renderHand();
+}
+
+function handleTableMessage(data) {
+    // 清空桌面，展示新出的牌
+    const tableElement = document.getElementById('table');
+    tableElement.innerHTML = '';
+    
+    if (data.cards && data.cards.length) {
+        // 显示谁出的牌
+        const playerInfoDiv = document.createElement('div');
+        playerInfoDiv.style.width = '100%';
+        playerInfoDiv.style.marginBottom = '10px';
+        playerInfoDiv.style.textAlign = 'center';
+        playerInfoDiv.innerHTML = `<span style="color:#666;">${data.playerId} 出牌:</span>`;
+        tableElement.appendChild(playerInfoDiv);
+        
+        // 渲染桌面牌
+        data.cards.forEach(card => {
+            const match = card.match(/([♠♥♣♦])([2-9JQKA]|10)/);
+            if (!match) return;
+            
+            const suit = match[1];
+            const rank = match[2];
+            
+            const cardElement = document.createElement('div');
+            cardElement.className = `card table-card suit-${suit}`;
+            
+            const topLeftDiv = document.createElement('div');
+            topLeftDiv.className = 'top-left';
+            
+            const rankSpanTop = document.createElement('span');
+            rankSpanTop.className = 'rank';
+            rankSpanTop.textContent = rank;
+            
+            const suitSpanTop = document.createElement('span');
+            suitSpanTop.className = 'suit';
+            suitSpanTop.textContent = suit;
+            
+            topLeftDiv.appendChild(rankSpanTop);
+            topLeftDiv.appendChild(suitSpanTop);
+            
+            const centerDiv = document.createElement('div');
+            centerDiv.className = 'center';
+            centerDiv.textContent = suit;
+            
+            cardElement.appendChild(topLeftDiv);
+            cardElement.appendChild(centerDiv);
+            tableElement.appendChild(cardElement);
+        });
+        
+        // 如果是当前玩家成功出牌，更新手牌并禁用按钮
+        if (data.playerId === playerId) {
+            // 更新手牌（移除已出的牌）
+            hand = hand.filter(card => !data.cards.includes(card));
+            
+            // 清除选中状态
+            selected = [];
+            
+            // 禁用按钮，因为成功出牌了
+            updateButtonState(false);
+        }
+        
+        // 重新渲染手牌
+        renderHand();
+    } else {
+        // 如果没有牌，显示占位符
+        const placeholder = document.createElement('div');
+        placeholder.className = 'card-placeholder';
+        placeholder.textContent = '牌桌';
+        tableElement.appendChild(placeholder);
+    }
+}
+
+function handleStatusMessage(data) {
+    const statusElement = document.getElementById('status');
+    
+    // 友好提示和结算提示
+    if (data.msg === '轮到你出牌') {
+        statusElement.innerText = '轮到你出牌';
+        updateButtonState(true);
+        document.getElementById('readyArea').style.display = 'none';
+        // 显示醒目提示
+        document.getElementById('yourTurnAlert').style.display = 'block';
+        // 添加声音提示
+        playNotificationSound();
+    } 
+    else if (data.msg === '请出包含♠3的首牌') {
+        statusElement.innerText = '您持有黑桃三请先出牌';
+        updateButtonState(true);
+        document.getElementById('readyArea').style.display = 'none';
+        // 显示醒目提示
+        document.getElementById('yourTurnAlert').style.display = 'block';
+        document.getElementById('yourTurnAlert').innerText = '您持有黑桃三，请先出牌！';
+        // 添加声音提示
+        playNotificationSound();
+    } 
+    else if (data.msg === '还没轮到你出牌' || data.msg === '还没轮到你') {
+        statusElement.innerText = '当前还未轮到你出牌';
+        updateButtonState(false);
+        document.getElementById('readyArea').style.display = 'none';
+        // 隐藏醒目提示
+        document.getElementById('yourTurnAlert').style.display = 'none';
+    } 
+    else if (data.msg === '你赢了！') {
+        statusElement.innerText = '你赢了！';
+        updateButtonState(false);
+        document.getElementById('readyArea').style.display = '';
+        document.getElementById('readyBtn').disabled = false;
+        // 隐藏醒目提示
+        document.getElementById('yourTurnAlert').style.display = 'none';
+        
+        // 胜利动画（可选）
+        celebrateWin();
+    } 
+    else if (data.msg && data.msg.startsWith('你输了！')) {
+        let match = data.msg.match(/你输了！剩余(\d+)张牌/);
+        if (match) {
+            statusElement.innerText = `你输了，剩余${match[1]}张牌`;
+        } else {
+            statusElement.innerText = '你输了';
+        }
+        updateButtonState(false);
+        document.getElementById('readyArea').style.display = '';
+        document.getElementById('readyBtn').disabled = false;
+        // 隐藏醒目提示
+        document.getElementById('yourTurnAlert').style.display = 'none';
+    } 
+    else if (data.msg === '新一轮不能PASS，必须先出牌') {
+        statusElement.innerText = '新一轮不能PASS，必须先出牌';
+        // 允许出牌，但禁用PASS按钮
+        document.getElementById('playBtn').disabled = false;
+        document.getElementById('passBtn').disabled = true;
+        // 显示醒目提示但修改文本
+        document.getElementById('yourTurnAlert').style.display = 'block';
+        document.getElementById('yourTurnAlert').innerText = '新一轮开始，请出牌！';
+    } 
+    else if (data.msg === '不支持的牌型' || 
+             data.msg === '首轮首出必须包含♠3' || 
+             data.msg === '必须出相同牌型或炸弹' || 
+             data.msg === '牌型不够大' ||
+             data.msg === '手牌不合法' ||
+             data.msg === '选择的牌不符合要求，请重新选择') {
+        // 所有出牌错误情况保持按钮启用
+        statusElement.innerText = data.msg;
+        updateButtonState(true);
+        // 保持醒目提示可见
+        document.getElementById('yourTurnAlert').style.display = 'block';
+        document.getElementById('yourTurnAlert').innerText = '请重新选择有效的牌型！';
+    } 
+    else {
+        statusElement.innerText = data.msg || '';
+    }
+}
+
+function handleReadyMessage(data) {
+    readyCount = data.count;
+    document.getElementById('readyStatus').innerText = `已准备：${readyCount}/3`;
+    
+    // 更新玩家准备状态
+    if (data.playerId) {
+        const playerIndex = players.findIndex(p => p.id === data.playerId);
+        if (playerIndex !== -1) {
+            players[playerIndex].ready = true;
+            updatePlayerInfo();
+        }
+    }
+    
+    if (readyCount >= 3) {
+        document.getElementById('readyArea').style.display = 'none';
+        document.getElementById('readyStatus').innerText = '';
+        
+        // 重置所有玩家的准备状态
+        players.forEach(p => p.ready = false);
+        updatePlayerInfo();
+    }
+}
+
+function handleCurrentPlayerMessage(data) {
+    currentPlayerId = data.playerId;
+    updatePlayerInfo();
+    
+    // 如果是当前玩家的回合
+    if (currentPlayerId === playerId) {
+        document.getElementById('yourTurnAlert').style.display = 'block';
+        document.getElementById('yourTurnAlert').innerText = '轮到你出牌了！';
+        updateButtonState(true);
+        playNotificationSound();
+    } else {
+        document.getElementById('yourTurnAlert').style.display = 'none';
+        updateButtonState(false);
+    }
+}
+
+function handlePlayerListMessage(data) {
+    players = data.players || [];
+    updatePlayerInfo();
+}
+
+function handleGameStartMessage(data) {
+    gameStarted = true;
+    document.getElementById('status').innerText = data.msg || '游戏开始！';
+    document.getElementById('readyArea').style.display = 'none';
+}
+
+function handleGameOverMessage(data) {
+    gameStarted = false;
+    document.getElementById('readyArea').style.display = '';
+    document.getElementById('readyBtn').disabled = false;
+    
+    // 清空桌面
+    const tableElement = document.getElementById('table');
+    tableElement.innerHTML = '<div class="card-placeholder">游戏结束</div>';
+    
+    updatePlayerInfo();
+}
+
+function handleErrorMessage(data) {
+    alert('错误: ' + data.msg);
+}
+
+function handlePassMessage(data) {
+    // 显示谁Pass了
+    const statusElement = document.getElementById('status');
+    statusElement.innerText = `${data.playerId} PASS`;
+    
+    // 如果是当前用户，则禁用按钮
+    if (data.playerId === playerId) {
+        updateButtonState(false);
+    }
+}
+
+function updatePlayerInfo() {
+    const playerInfoDiv = document.getElementById('playerInfo');
+    playerInfoDiv.innerHTML = '';
+    
+    // 显示所有已知玩家
+    players.forEach(player => {
+        const isCurrentPlayer = player.id === currentPlayerId;
+        const isYou = player.id === playerId;
+        
+        const playerCard = document.createElement('div');
+        playerCard.className = `player-card${isCurrentPlayer ? ' active' : ''}`;
+        
+        let displayName = isYou ? `你 (${player.id})` : player.id;
+        
+        let statusIndicator = '';
+        if (isCurrentPlayer) {
+            statusIndicator = ' <span class="current-player-indicator">出牌中</span>';
+        } else if (player.ready) {
+            statusIndicator = ' <span style="color:green">已准备</span>';
+        }
+        
+        playerCard.innerHTML = `
+            <div>${displayName}</div>
+            ${statusIndicator}
+        `;
+        
+        playerInfoDiv.appendChild(playerCard);
+    });
+    
+    // 如果玩家少于3人，添加空位
+    for (let i = players.length; i < 3; i++) {
+        const emptyCard = document.createElement('div');
+        emptyCard.className = 'player-card';
+        emptyCard.innerHTML = '<div style="color:#999">等待玩家加入...</div>';
+        playerInfoDiv.appendChild(emptyCard);
+    }
+}
+
+function updateButtonState(enabled) {
+    document.getElementById('playBtn').disabled = !enabled;
+    document.getElementById('passBtn').disabled = !enabled;
+}
+
+function playNotificationSound() {
+    try {
+        // 使用Web Audio API创建简单的提示音
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        oscillator.type = 'sine';
+        oscillator.frequency.value = 440; // A4音符
+        gainNode.gain.value = 0.3; // 音量控制
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        oscillator.start();
+        
+        // 0.3秒后停止声音
+        setTimeout(() => {
+            oscillator.stop();
+            
+            // 短暂延迟后播放第二个音
+            setTimeout(() => {
+                const oscillator2 = audioContext.createOscillator();
+                oscillator2.type = 'sine';
+                oscillator2.frequency.value = 523.25; // C5音符
+                oscillator2.connect(gainNode);
+                
+                oscillator2.start();
+                setTimeout(() => oscillator2.stop(), 300);
+            }, 100);
+        }, 300);
+    } catch (e) {
+        console.log('无法播放提示音', e);
+    }
+}
+
+function playCards() {
+    if (!selected.length) {
+        alert('请先选择要出的牌');
+        return;
+    }
+    
+    // 隐藏轮到出牌提示
+    document.getElementById('yourTurnAlert').style.display = 'none';
+    
+    // 获取选中的牌（直接从DOM中获取卡牌值）
+    const cards = [];
+    const cardElements = document.querySelectorAll('.card.selected');
+    
+    cardElements.forEach(element => {
+        // 优先使用保存在DOM元素中的卡牌值
+        const cardValue = element.dataset.cardValue;
+        if (cardValue) {
+            cards.push(cardValue);
+        }
+    });
+    
+    // 详细调试信息
+    console.log('准备出牌:', cards);
+    console.log('手牌数组:', hand);
+    console.log('已选择索引:', selected);
+    
+    // 检查是否包含黑桃3并打印每张牌的详细信息
+    let hasSpade3 = false;
+    console.log('选中的牌详情:');
+    for (let i = 0; i < cards.length; i++) {
+        const card = cards[i];
+        console.log(`牌 ${i+1}: ${card}`);
+        
+        // 分析卡牌花色和点数
+        if (typeof card === 'string') {
+            const match = card.match(/([♠♥♣♦])([2-9JQKA]|10)/);
+            if (match) {
+                const suit = match[1];
+                const rank = match[2];
+                console.log(`  - 解析: 花色=${suit}, 点数=${rank}`);
+                
+                if (suit === '♠' && rank === '3') {
+                    hasSpade3 = true;
+                    console.log('  - 确认是黑桃3!');
+                }
+            }
+        }
+    }
+    
+    console.log('包含黑桃3:', hasSpade3);
+    
+    // 发送出牌请求 - 确保发送原始卡牌字符串，不要修改格式
+    ws.send(JSON.stringify({action: 'play', cards}));
+    document.getElementById('status').innerText = '已出牌，等待结果...';
+}
+
+function pass() {
+    // 隐藏轮到出牌提示
+    document.getElementById('yourTurnAlert').style.display = 'none';
+    
+    ws.send(JSON.stringify({action: 'pass'}));
+    document.getElementById('status').innerText = '已PASS，等待下一轮...';
+}
+
+// 渲染手牌函数
+function renderHand() {
+    const handElement = document.getElementById('hand');
+    handElement.innerHTML = '';
+    
+    // 对牌进行排序
+    const sortedHand = sortCards([...hand]);
+    
+    // 保存排序后的索引映射到原始索引的映射表
+    const sortedToOriginalMap = [];
+    for (let sortedIdx = 0; sortedIdx < sortedHand.length; sortedIdx++) {
+        const sortedCard = sortedHand[sortedIdx];
+        const originalIdx = hand.findIndex(card => card === sortedCard);
+        sortedToOriginalMap.push(originalIdx);
+    }
+    
+    console.log('手牌排序前:', hand);
+    console.log('手牌排序后:', sortedHand);
+    console.log('排序索引映射表:', sortedToOriginalMap);
+    
+    sortedHand.forEach((card, index) => {
+        // 解析牌面和花色
+        const match = card.match(/([♠♥♣♦])([2-9JQKA]|10)/);
+        if (!match) return;
+        
+        const suit = match[1];
+        const rank = match[2];
+        
+        // 获取原始索引
+        const originalIndex = sortedToOriginalMap[index];
+        
+        // 创建牌元素
+        const cardElement = document.createElement('div');
+        cardElement.className = 'card' + (selected.includes(index) ? ' selected' : '');
+        cardElement.dataset.index = index;               // 排序后的索引
+        cardElement.dataset.originalIndex = originalIndex; // 原始索引
+        cardElement.dataset.cardValue = card;            // 卡牌字符串值
+        
+        // 添加花色和点数的CSS类
+        cardElement.classList.add(`suit-${suit}`);
+        
+        // 创建牌的内部布局
+        const topLeftDiv = document.createElement('div');
+        topLeftDiv.className = 'top-left';
+        
+        const rankSpanTop = document.createElement('span');
+        rankSpanTop.className = 'rank';
+        rankSpanTop.textContent = rank;
+        
+        const suitSpanTop = document.createElement('span');
+        suitSpanTop.className = 'suit';
+        suitSpanTop.textContent = suit;
+        
+        topLeftDiv.appendChild(rankSpanTop);
+        topLeftDiv.appendChild(suitSpanTop);
+        
+        const bottomRightDiv = document.createElement('div');
+        bottomRightDiv.className = 'bottom-right';
+        
+        const rankSpanBottom = document.createElement('span');
+        rankSpanBottom.className = 'rank';
+        rankSpanBottom.textContent = rank;
+        
+        const suitSpanBottom = document.createElement('span');
+        suitSpanBottom.className = 'suit';
+        suitSpanBottom.textContent = suit;
+        
+        bottomRightDiv.appendChild(rankSpanBottom);
+        bottomRightDiv.appendChild(suitSpanBottom);
+        
+        const centerDiv = document.createElement('div');
+        centerDiv.className = 'center';
+        centerDiv.textContent = suit;
+        
+        cardElement.appendChild(topLeftDiv);
+        cardElement.appendChild(centerDiv);
+        cardElement.appendChild(bottomRightDiv);
+        
+        // 添加点击事件
+        cardElement.onclick = function() {
+            const idx = parseInt(this.dataset.index);
+            const selIdx = selected.indexOf(idx);
+            if (selIdx === -1) {
+                selected.push(idx);
+                this.classList.add('selected');
+            } else {
+                selected.splice(selIdx, 1);
+                this.classList.remove('selected');
+            }
+        };
+        
+        handElement.appendChild(cardElement);
+    });
+    
+    // 如果没有手牌，显示提示
+    if (sortedHand.length === 0) {
+        const emptyHand = document.createElement('div');
+        emptyHand.textContent = '没有手牌';
+        emptyHand.style.color = '#999';
+        emptyHand.style.padding = '20px';
+        handElement.appendChild(emptyHand);
+    }
+}
+
+// 对牌进行排序的辅助函数
+function sortCards(cards) {
+    // 定义花色顺序: ♠(黑桃), ♥(红心), ♣(梅花), ♦(方块)
+    const suitOrder = {'♠': 0, '♥': 1, '♣': 2, '♦': 3};
+    
+    // 定义点数顺序: 3, 4, 5, 6, 7, 8, 9, 10, J, Q, K, A, 2
+    const rankOrder = {
+        '3': 0, '4': 1, '5': 2, '6': 3, '7': 4, '8': 5, '9': 6, '10': 7, 
+        'J': 8, 'Q': 9, 'K': 10, 'A': 11, '2': 12
+    };
+    
+    return cards.sort((a, b) => {
+        // 解析牌面
+        const matchA = a.match(/([♠♥♣♦])([2-9JQKA]|10)/);
+        const matchB = b.match(/([♠♥♣♦])([2-9JQKA]|10)/);
+        
+        if (!matchA || !matchB) return 0;
+        
+        const suitA = matchA[1];
+        const rankA = matchA[2];
+        
+        const suitB = matchB[1];
+        const rankB = matchB[2];
+        
+        // 先按点数排序
+        if (rankOrder[rankA] !== rankOrder[rankB]) {
+            return rankOrder[rankA] - rankOrder[rankB];
+        }
+        
+        // 点数相同按花色排序
+        return suitOrder[suitA] - suitOrder[suitB];
+    });
+}
+
+function readyGame() {
+    // 禁用准备按钮，防止重复点击
+    document.getElementById('readyBtn').disabled = true;
+    document.getElementById('readyBtn').innerText = '已准备';
+    ws.send(JSON.stringify({action: 'ready'}));
+}
+
+function celebrateWin() {
+    // 简单的胜利动画
+    const gameDiv = document.getElementById('game');
+    gameDiv.style.animation = 'pulse 0.5s 3';
+    
+    setTimeout(() => {
+        gameDiv.style.animation = '';
+    }, 1500);
+}
+</script>
+</body>
+</html>

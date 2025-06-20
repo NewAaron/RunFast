@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    container_name: run-fast-game
+    # 如果需要配置环境变量，取消下面的注释并添加
+    # environment:
+    #   - SPRING_PROFILES_ACTIVE=prod
+    #   - SERVER_PORT=8080
+    # 如果需要持久化数据，取消下面的注释并添加挂载点
+    # volumes:
+    #   - ./data:/app/data

@@ -1,0 +1,25 @@
+# Build artifacts
+target/
+*.jar
+*.war
+*.ear
+
+# Docker artifacts
+*.tar
+*.tar.gz
+
+# IDE files
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+
+# Logs
+*.log
+log/
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
