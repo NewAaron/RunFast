@@ -99,31 +99,59 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         String roomId = (String) msg.get("roomId");
         String inputPlayerId = (String) msg.get("playerId");
         Room room = roomService.getRoom(roomId);
-        
-        if (room != null && room.getPlayers().size() < 3) {
-            Player player = inputPlayerId != null && !inputPlayerId.isEmpty() ? 
-                new Player(inputPlayerId, inputPlayerId) : new Player(session.getId());
-            
-            room.addPlayer(player);
-            sessionPlayerMap.put(session.getId(), player);
-            sessionRoomMap.put(session.getId(), roomId);
-            
-            Map<String, Object> response = new HashMap<>();
-            response.put("type", "room");
-            response.put("roomId", roomId);
-            response.put("playerId", player.getPlayerId());
-            sendToSession(session, response);
-            
-            // 发送玩家列表更新
-            broadcastPlayerList(roomId);
-            
-            // 检查房间是否已满，满则开始游戏
-            checkRoomAndStartGameIfFull(roomId);
-        } else {
+        if (room == null) {
             Map<String, Object> response = new HashMap<>();
             response.put("type", "status");
-            response.put("msg", "房间不存在或已满");
+            response.put("msg", "房间不存在");
             sendToSession(session, response);
+            return;
+        }
+        // 检查房间内是否已存在该玩家（断线重连）
+        Player player = null;
+        for (Player p : room.getPlayers()) {
+            if (p.getPlayerId().equals(inputPlayerId)) {
+                player = p;
+                break;
+            }
+        }
+        if (player == null) {
+            // 房间未满才能新加玩家
+            if (room.getPlayers().size() < 3) {
+                player = new Player(inputPlayerId, inputPlayerId);
+                room.addPlayer(player);
+            } else {
+                Map<String, Object> response = new HashMap<>();
+                response.put("type", "status");
+                response.put("msg", "房间已满");
+                sendToSession(session, response);
+                return;
+            }
+        }
+        sessionPlayerMap.put(session.getId(), player);
+        sessionRoomMap.put(session.getId(), roomId);
+        Map<String, Object> response = new HashMap<>();
+        response.put("type", "room");
+        response.put("roomId", roomId);
+        response.put("playerId", player.getPlayerId());
+        sendToSession(session, response);
+        // 发送玩家列表更新
+        broadcastPlayerList(roomId);
+        // 如果游戏已开始，推送手牌和当前出牌人
+        if (room.getGame() != null) {
+            List<Card> hand = room.getGame().getHand(player.getPlayerId());
+            if (hand != null) {
+                Map<String, Object> handMsg = new HashMap<>();
+                handMsg.put("type", "hand");
+                handMsg.put("cards", hand.stream().map(Card::toString).toArray());
+                sendToSession(session, handMsg);
+            }
+            // 推送当前出牌人
+            broadcastCurrentPlayer(roomId, room.getGame().getCurrentPlayerId());
+            // 推送手牌数量
+            broadcastHandCounts(roomId);
+        } else {
+            // 检查房间是否已满，满则开始游戏
+            checkRoomAndStartGameIfFull(roomId);
         }
     }
     
