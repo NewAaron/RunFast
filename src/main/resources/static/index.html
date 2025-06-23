@@ -343,6 +343,26 @@
                 font-size: 12px;
             }
         }
+
+        #popupStatus {
+            display: none;
+            position: fixed;
+            top: 18%;
+            left: 50%;
+            transform: translate(-50%, 0);
+            background: #fff3e0;
+            color: #ff5722;
+            font-size: 1.1em;
+            font-weight: bold;
+            border-left: 4px solid #ff5722;
+            border-radius: 6px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.12);
+            padding: 16px 32px;
+            z-index: 2000;
+            text-align: center;
+            min-width: 120px;
+            max-width: 80vw;
+        }
     </style>
 </head>
 <body>
@@ -392,6 +412,8 @@
     <div class="spinner"></div>
     <div id="loadingText">连接中...</div>
 </div>
+
+<div id="popupStatus"></div>
 
 <script>
 let ws, playerId, roomId, hand = [], selected = [], currentPlayerId = null, readyCount = 0;
@@ -630,7 +652,7 @@ function handleStatusMessage(data) {
     
     // 友好提示和结算提示
     if (data.msg === '轮到你出牌') {
-        statusElement.innerText = '轮到你出牌';
+        showPopupStatus('轮到你出牌');
         updateButtonState(true);
         document.getElementById('readyArea').style.display = 'none';
         // 显示醒目提示
@@ -639,7 +661,7 @@ function handleStatusMessage(data) {
         playNotificationSound();
     } 
     else if (data.msg === '请出包含♠3的首牌') {
-        statusElement.innerText = '您持有黑桃三请先出牌';
+        showPopupStatus('您持有黑桃三请先出牌');
         updateButtonState(true);
         document.getElementById('readyArea').style.display = 'none';
         // 显示醒目提示
@@ -649,14 +671,14 @@ function handleStatusMessage(data) {
         playNotificationSound();
     } 
     else if (data.msg === '还没轮到你出牌' || data.msg === '还没轮到你') {
-        statusElement.innerText = '当前还未轮到你出牌';
+        showPopupStatus('当前还未轮到你出牌');
         updateButtonState(false);
         document.getElementById('readyArea').style.display = 'none';
         // 隐藏醒目提示
         document.getElementById('yourTurnAlert').style.display = 'none';
     } 
     else if (data.msg === '你赢了！') {
-        statusElement.innerText = '你赢了！';
+        showPopupStatus('你赢了！');
         updateButtonState(false);
         document.getElementById('readyArea').style.display = '';
         document.getElementById('readyBtn').disabled = false;
@@ -669,9 +691,9 @@ function handleStatusMessage(data) {
     else if (data.msg && data.msg.startsWith('你输了！')) {
         let match = data.msg.match(/你输了！剩余(\d+)张牌/);
         if (match) {
-            statusElement.innerText = `你输了，剩余${match[1]}张牌`;
+            showPopupStatus(`你输了，剩余${match[1]}张牌`);
         } else {
-            statusElement.innerText = '你输了';
+            showPopupStatus('你输了');
         }
         updateButtonState(false);
         document.getElementById('readyArea').style.display = '';
@@ -680,7 +702,7 @@ function handleStatusMessage(data) {
         document.getElementById('yourTurnAlert').style.display = 'none';
     } 
     else if (data.msg === '新一轮不能PASS，必须先出牌') {
-        statusElement.innerText = '新一轮不能PASS，必须先出牌';
+        showPopupStatus('新一轮不能PASS，必须先出牌');
         // 允许出牌，但禁用PASS按钮
         document.getElementById('playBtn').disabled = false;
         document.getElementById('passBtn').disabled = true;
@@ -694,15 +716,15 @@ function handleStatusMessage(data) {
              data.msg === '牌型不够大' ||
              data.msg === '手牌不合法' ||
              data.msg === '选择的牌不符合要求，请重新选择') {
+        showPopupStatus(data.msg);
         // 所有出牌错误情况保持按钮启用
-        statusElement.innerText = data.msg;
         updateButtonState(true);
         // 保持醒目提示可见
         document.getElementById('yourTurnAlert').style.display = 'block';
         document.getElementById('yourTurnAlert').innerText = '请重新选择有效的牌型！';
     } 
     else {
-        statusElement.innerText = data.msg || '';
+        if (data.msg) showPopupStatus(data.msg);
     }
 }
 
@@ -756,7 +778,7 @@ function handleGameStartMessage(data) {
     gameStarted = true;
     // 所有玩家都视为已上线
     players.forEach(p => disconnectedPlayers.delete(p.id));
-    document.getElementById('status').innerText = data.msg || '游戏开始！';
+    showPopupStatus(data.msg || '游戏开始！');
     document.getElementById('readyArea').style.display = 'none';
 }
 
@@ -764,24 +786,18 @@ function handleGameOverMessage(data) {
     gameStarted = false;
     document.getElementById('readyArea').style.display = '';
     document.getElementById('readyBtn').disabled = false;
-    
-    // 清空桌面
     const tableElement = document.getElementById('table');
     tableElement.innerHTML = '<div class="card-placeholder">游戏结束</div>';
-    
     updatePlayerInfo();
+    showPopupStatus('游戏结束');
 }
 
 function handleErrorMessage(data) {
-    alert('错误: ' + data.msg);
+    showPopupStatus('错误: ' + data.msg);
 }
 
 function handlePassMessage(data) {
-    // 显示谁Pass了
-    const statusElement = document.getElementById('status');
-    statusElement.innerText = `${data.playerId} PASS`;
-    
-    // 如果是当前用户，则禁用按钮
+    showPopupStatus(`${data.playerId} PASS`);
     if (data.playerId === playerId) {
         updateButtonState(false);
     }
@@ -796,11 +812,7 @@ function handlePlayerDisconnectedMessage(data) {
     const pid = data.playerId;
     disconnectedPlayers.add(pid);
     updatePlayerInfo();
-    // 也可在状态栏提示
-    const statusElement = document.getElementById('status');
-    if (statusElement) {
-        statusElement.innerText = `玩家 ${pid} 已断线`;
-    }
+    showPopupStatus(`玩家 ${pid} 已断线`);
 }
 
 function updatePlayerInfo() {
@@ -855,6 +867,17 @@ function updatePlayerInfo() {
 function updateButtonState(enabled) {
     document.getElementById('playBtn').disabled = !enabled;
     document.getElementById('passBtn').disabled = !enabled;
+}
+
+function showPopupStatus(msg) {
+    const popup = document.getElementById('popupStatus');
+    if (!popup) return;
+    popup.innerText = msg;
+    popup.style.display = 'block';
+    clearTimeout(popup._timer);
+    popup._timer = setTimeout(() => {
+        popup.style.display = 'none';
+    }, 2000);
 }
 
 function playNotificationSound() {
