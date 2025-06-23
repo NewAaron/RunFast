@@ -376,6 +376,8 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         
         // 广播当前出牌人ID
         broadcastCurrentPlayer(roomId, game.getCurrentPlayerId());
+        // 新增：广播每个玩家剩余手牌数量
+        broadcastHandCounts(roomId);
     }
     
     private void handlePass(WebSocketSession session) throws IOException {
@@ -423,6 +425,8 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         
         // 广播当前出牌人
         broadcastCurrentPlayer(roomId, game.getCurrentPlayerId());
+        // 新增：广播每个玩家剩余手牌数量
+        broadcastHandCounts(roomId);
     }
     
     private void handleReady(WebSocketSession session) throws IOException {
@@ -688,6 +692,23 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         playerListMsg.put("type", "playerList");
         playerListMsg.put("players", playerInfoList);
         broadcastToRoom(roomId, playerListMsg);
+    }
+    
+    // 广播每个玩家剩余手牌数量
+    private void broadcastHandCounts(String roomId) throws IOException {
+        Room room = roomService.getRoom(roomId);
+        if (room == null || room.getGame() == null) return;
+        Game game = room.getGame();
+        List<Player> players = room.getPlayers();
+        Map<String, Integer> handCounts = new HashMap<>();
+        for (Player p : players) {
+            List<Card> hand = game.getHand(p.getPlayerId());
+            handCounts.put(p.getPlayerId(), hand != null ? hand.size() : 0);
+        }
+        Map<String, Object> msg = new HashMap<>();
+        msg.put("type", "handCounts");
+        msg.put("counts", handCounts);
+        broadcastToRoom(roomId, msg);
     }
     
     // 牌型大小比较
