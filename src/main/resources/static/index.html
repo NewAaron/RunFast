@@ -398,6 +398,7 @@ let ws, playerId, roomId, hand = [], selected = [], currentPlayerId = null, read
 let players = [];
 let gameStarted = false;
 let handCounts = {};
+let disconnectedPlayers = new Set();
 
 function showLoading(text = "连接中...") {
     document.getElementById('loadingOverlay').style.display = 'flex';
@@ -497,6 +498,9 @@ function handleMessage(msg) {
         case 'handCounts':
             handleHandCountsMessage(data);
             break;
+        case 'playerDisconnected':
+            handlePlayerDisconnectedMessage(data);
+            break;
         default:
             console.log('Unknown message type:', data.type);
     }
@@ -511,13 +515,12 @@ function handleRoomMessage(data) {
     document.getElementById('game').style.display = '';
     document.getElementById('roomId').innerText = roomId;
     document.getElementById('playerId').innerText = playerId;
-    
+    // 重新上线时移除断线标记
+    if (playerId) disconnectedPlayers.delete(playerId);
     // 初始化禁用出牌和PASS按钮
     updateButtonState(false);
-    
     // 隐藏轮到出牌提示
     document.getElementById('yourTurnAlert').style.display = 'none';
-    
     // 初始化玩家信息
     players = [{id: playerId, name: playerId}];
     updatePlayerInfo();
@@ -744,11 +747,15 @@ function handleCurrentPlayerMessage(data) {
 
 function handlePlayerListMessage(data) {
     players = data.players || [];
+    // 移除所有已上线玩家的断线标记
+    players.forEach(p => disconnectedPlayers.delete(p.id));
     updatePlayerInfo();
 }
 
 function handleGameStartMessage(data) {
     gameStarted = true;
+    // 所有玩家都视为已上线
+    players.forEach(p => disconnectedPlayers.delete(p.id));
     document.getElementById('status').innerText = data.msg || '游戏开始！';
     document.getElementById('readyArea').style.display = 'none';
 }
@@ -785,6 +792,17 @@ function handleHandCountsMessage(data) {
     updatePlayerInfo();
 }
 
+function handlePlayerDisconnectedMessage(data) {
+    const pid = data.playerId;
+    disconnectedPlayers.add(pid);
+    updatePlayerInfo();
+    // 也可在状态栏提示
+    const statusElement = document.getElementById('status');
+    if (statusElement) {
+        statusElement.innerText = `玩家 ${pid} 已断线`;
+    }
+}
+
 function updatePlayerInfo() {
     const playerInfoDiv = document.getElementById('playerInfo');
     playerInfoDiv.innerHTML = '';
@@ -792,8 +810,13 @@ function updatePlayerInfo() {
     players.forEach(player => {
         const isCurrentPlayer = player.id === currentPlayerId;
         const isYou = player.id === playerId;
+        const isDisconnected = disconnectedPlayers.has(player.id);
         const playerCard = document.createElement('div');
         playerCard.className = `player-card${isCurrentPlayer ? ' active' : ''}`;
+        if (isDisconnected) {
+            playerCard.style.backgroundColor = '#ffeaea';
+            playerCard.style.border = '1px solid #ff4d4f';
+        }
         let displayName = isYou ? `你 (${player.id})` : player.id;
         let statusIndicator = '';
         if (isCurrentPlayer) {
@@ -806,10 +829,16 @@ function updatePlayerInfo() {
         if (handCounts && handCounts[player.id] !== undefined) {
             handCountStr = `<div style='color:#007bff;font-size:13px;'>剩余手牌：${handCounts[player.id]}</div>`;
         }
+        // 新增：断线提示
+        let disconnectTip = '';
+        if (isDisconnected) {
+            disconnectTip = `<div style='color:#ff4d4f;font-size:13px;'>玩家已断线</div>`;
+        }
         playerCard.innerHTML = `
             <div>${displayName}</div>
             ${handCountStr}
             ${statusIndicator}
+            ${disconnectTip}
         `;
         playerInfoDiv.appendChild(playerCard);
     });

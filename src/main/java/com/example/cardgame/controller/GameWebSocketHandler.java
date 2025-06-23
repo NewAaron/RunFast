@@ -594,42 +594,26 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     }
     
     @Override
-    public void afterConnectionClosed(@NonNull WebSocketSession session, @NonNull CloseStatus status) {
-        String roomId = sessionRoomMap.get(session.getId());
-        Player player = sessionPlayerMap.get(session.getId());
-        
-        if (roomId != null && player != null) {
-            Room room = roomService.getRoom(roomId);
-            if (room != null) {
-                // 移除玩家
-                room.getPlayers().removeIf(p -> p.getPlayerId().equals(player.getPlayerId()));
-                
-                // 如果有准备状态，移除
-                if (roomReadyMap.containsKey(roomId)) {
-                    roomReadyMap.get(roomId).remove(player.getPlayerId());
-                }
-                
-                try {
-                    // 通知其他玩家
-                    Map<String, Object> disconnectMsg = new HashMap<>();
-                    disconnectMsg.put("type", "playerDisconnected");
-                    disconnectMsg.put("playerId", player.getPlayerId());
-                    broadcastToRoom(roomId, disconnectMsg);
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-                
-                // 如果房间为空，删除房间
-                if (room.getPlayers().isEmpty()) {
-                    roomReadyMap.remove(roomId);
-                }
-            }
+    public void afterConnectionClosed(@NonNull WebSocketSession session, @NonNull CloseStatus status) throws Exception {
+        String playerId = null;
+        String roomId = null;
+        if (sessionPlayerMap.containsKey(session.getId())) {
+            playerId = sessionPlayerMap.get(session.getId()).getPlayerId();
         }
-        
-        // 清理映射
+        if (sessionRoomMap.containsKey(session.getId())) {
+            roomId = sessionRoomMap.get(session.getId());
+        }
+        // 移除session映射
         sessionPlayerMap.remove(session.getId());
         sessionRoomMap.remove(session.getId());
         sessionMap.remove(session.getId());
+        // 向房间内其他玩家广播断线消息
+        if (roomId != null && playerId != null) {
+            Map<String, Object> msg = new HashMap<>();
+            msg.put("type", "playerDisconnected");
+            msg.put("playerId", playerId);
+            broadcastToRoom(roomId, msg);
+        }
     }
     
     // 发送消息到单个会话
