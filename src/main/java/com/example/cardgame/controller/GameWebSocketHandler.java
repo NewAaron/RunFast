@@ -736,6 +736,14 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             return played.size() == last.size() &&
                 rankValue(maxRank(played)) > rankValue(maxRank(last));
         }
+        if (type == Game.CardType.TRIPLE_SEQUENCE_WITH_PAIRS) {
+            return played.size() == last.size() &&
+                rankValue(maxTripleRank(played)) > rankValue(maxTripleRank(last));
+        }
+        if (type == Game.CardType.TRIPLE_SEQUENCE) {
+            return played.size() == last.size() &&
+                rankValue(maxTripleRank(played)) > rankValue(maxTripleRank(last));
+        }
         if (type == Game.CardType.FULL_HOUSE || type == Game.CardType.TRIPLE) {
             return rankValue(maxTripleRank(played)) > rankValue(maxTripleRank(last));
         }

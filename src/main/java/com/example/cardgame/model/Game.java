@@ -74,7 +74,7 @@ public class Game {
     public void pass() { passCount++; if (passCount >= 2) { lastPlayedCards.clear(); lastPlayedPlayerId = null; passCount = 0; } }
     // 牌型枚举
     public enum CardType {
-        BOMB, STRAIGHT_FLUSH, TRIPLE_SEQUENCE_WITH_PAIRS, STRAIGHT, FULL_HOUSE, TRIPLE, PAIR_SEQUENCE, PAIR, SINGLE, INVALID
+        BOMB, STRAIGHT_FLUSH, TRIPLE_SEQUENCE_WITH_PAIRS, TRIPLE_SEQUENCE, STRAIGHT, FULL_HOUSE, TRIPLE, PAIR_SEQUENCE, PAIR, SINGLE, INVALID
     }
     // 牌型判定入口
     public CardType judgeType(List<Card> cards) {
@@ -83,8 +83,10 @@ public class Game {
         if ((cards.size() == 4 && sameRank(cards)) || isFourWithOne(cards)) return CardType.BOMB;
         // 同花顺（同花色连续3张及以上）
         if (cards.size() >= 3 && sameSuit(cards) && isStraight(cards, false)) return CardType.STRAIGHT_FLUSH;
-        // 连三带两对（如555-666+77-88）
+        // 连三带对（如555-666+77-88）
         if (isTripleSequenceWithPairs(cards)) return CardType.TRIPLE_SEQUENCE_WITH_PAIRS;
+        // 连三（如333-444-555）
+        if (isTripleSequence(cards)) return CardType.TRIPLE_SEQUENCE;
         // 普通顺子（5张及以上，不能有2）
         if (cards.size() >= 5 && isStraight(cards, true)) return CardType.STRAIGHT;
         // 三带二（如999+55）
@@ -136,16 +138,80 @@ public class Game {
         return true;
     }
     private boolean isTripleSequenceWithPairs(List<Card> cards) {
-        // 简化实现：只支持两组三带两对
-        if (cards.size() != 10) return false;
-        Map<String, Integer> map = new HashMap<>();
-        for (Card c : cards) map.put(c.getRank(), map.getOrDefault(c.getRank(),0)+1);
-        int triple = 0, pair = 0;
-        for (int v : map.values()) {
-            if (v == 3) triple++;
-            else if (v == 2) pair++;
+        // 连三带对：n组连续的三张 + n组对子
+        // 最少需要10张牌（2组三张6张 + 2组对子4张）
+        if (cards.size() < 10 || cards.size() % 5 != 0) return false;
+        
+        Map<String, Integer> rankCount = new HashMap<>();
+        for (Card c : cards) {
+            rankCount.put(c.getRank(), rankCount.getOrDefault(c.getRank(), 0) + 1);
         }
-        return triple >= 2 && pair == 2;
+        
+        // 统计各种牌型数量
+        List<String> triples = new ArrayList<>();
+        List<String> pairs = new ArrayList<>();
+        
+        for (Map.Entry<String, Integer> entry : rankCount.entrySet()) {
+            if (entry.getValue() == 3) {
+                triples.add(entry.getKey());
+            } else if (entry.getValue() == 2) {
+                pairs.add(entry.getKey());
+            } else if (entry.getValue() != 0) {
+                // 如果有其他数量的牌，则不是连三带对
+                return false;
+            }
+        }
+        
+        // 必须有相同数量的三张和对子，且至少2组
+        if (triples.size() < 2 || triples.size() != pairs.size()) {
+            return false;
+        }
+        
+        // 检查三张是否连续
+        triples.sort(Comparator.comparingInt(this::rankValue));
+        for (int i = 1; i < triples.size(); i++) {
+            if (rankValue(triples.get(i)) != rankValue(triples.get(i-1)) + 1) {
+                return false;
+            }
+        }
+        
+        return true;
+    }
+    private boolean isTripleSequence(List<Card> cards) {
+        // 连三：n组连续的三张，最少需要6张牌（2组三张）
+        if (cards.size() < 6 || cards.size() % 3 != 0) return false;
+        
+        Map<String, Integer> rankCount = new HashMap<>();
+        for (Card c : cards) {
+            rankCount.put(c.getRank(), rankCount.getOrDefault(c.getRank(), 0) + 1);
+        }
+        
+        // 统计三张的数量
+        List<String> triples = new ArrayList<>();
+        
+        for (Map.Entry<String, Integer> entry : rankCount.entrySet()) {
+            if (entry.getValue() == 3) {
+                triples.add(entry.getKey());
+            } else if (entry.getValue() != 0) {
+                // 如果有其他数量的牌，则不是连三
+                return false;
+            }
+        }
+        
+        // 必须至少有2组三张
+        if (triples.size() < 2) {
+            return false;
+        }
+        
+        // 检查三张是否连续
+        triples.sort(Comparator.comparingInt(this::rankValue));
+        for (int i = 1; i < triples.size(); i++) {
+            if (rankValue(triples.get(i)) != rankValue(triples.get(i-1)) + 1) {
+                return false;
+            }
+        }
+        
+        return true;
     }
     private boolean isFourWithOne(List<Card> cards) {
         if (cards.size() != 5) return false;
@@ -211,7 +277,12 @@ public class Game {
                 if (newCards.size() != oldCards.size()) return false;
                 return getMaxRankValue(newCards) > getMaxRankValue(oldCards);
             case TRIPLE_SEQUENCE_WITH_PAIRS:
-                // 连三带对比较三张的最大点
+                // 连三带对比较三张的最大点，且张数必须相同
+                if (newCards.size() != oldCards.size()) return false;
+                return getMaxTripleRankValue(newCards) > getMaxTripleRankValue(oldCards);
+            case TRIPLE_SEQUENCE:
+                // 连三比较三张的最大点，且张数必须相同
+                if (newCards.size() != oldCards.size()) return false;
                 return getMaxTripleRankValue(newCards) > getMaxTripleRankValue(oldCards);
             case FULL_HOUSE:
                 // 三带二比较三张的点数

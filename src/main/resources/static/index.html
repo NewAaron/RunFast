@@ -105,6 +105,10 @@
             border-radius: 8px;
             padding: 10px;
             background-color: #f9f9f9;
+            margin-left: auto;
+            margin-right: auto;
+            width: 95%;
+            box-sizing: border-box;
         }
         
         #playerInfo {
@@ -363,6 +367,57 @@
             min-width: 120px;
             max-width: 80vw;
         }
+
+        /* 优化出牌和PASS按钮样式 - 绿色和红色，大小形状一致 */
+        #playBtn {
+            background: linear-gradient(90deg, #43e97b 0%, #38f9d7 100%);
+            color: #fff;
+            font-weight: bold;
+            font-size: 18px;
+            border: none;
+            border-radius: 6px;
+            box-shadow: 0 2px 8px rgba(67,233,123,0.15);
+            padding: 10px 32px;
+            margin-right: 16px;
+            letter-spacing: 2px;
+            transition: background 0.3s, transform 0.2s, box-shadow 0.2s;
+            min-width: 110px;
+            min-height: 44px;
+        }
+        #playBtn:hover:enabled {
+            background: linear-gradient(90deg, #11998e 0%, #38ef7d 100%);
+            transform: translateY(-2px) scale(1.05);
+            box-shadow: 0 4px 16px rgba(67,233,123,0.25);
+        }
+        #playBtn:disabled {
+            background: #b2f2dd;
+            color: #bbb;
+            box-shadow: none;
+        }
+        #passBtn {
+            background: linear-gradient(90deg, #ff5858 0%, #f09819 100%);
+            color: #fff;
+            font-weight: bold;
+            font-size: 18px;
+            border: none;
+            border-radius: 6px;
+            box-shadow: 0 2px 8px rgba(255,88,88,0.15);
+            padding: 10px 32px;
+            letter-spacing: 2px;
+            transition: background 0.3s, transform 0.2s, box-shadow 0.2s;
+            min-width: 110px;
+            min-height: 44px;
+        }
+        #passBtn:hover:enabled {
+            background: linear-gradient(90deg, #ff5858 0%, #ffb347 100%);
+            transform: translateY(-2px) scale(1.05);
+            box-shadow: 0 4px 16px rgba(255,88,88,0.18);
+        }
+        #passBtn:disabled {
+            background: #ffd6d6;
+            color: #bbb;
+            box-shadow: none;
+        }
     </style>
 </head>
 <body>
@@ -395,9 +450,9 @@
         <!-- 手牌区域 -->
     </div>
     
-    <div id="actions" style="margin-top: 20px;">
-        <button id="playBtn" onclick="playCards()" disabled>出牌</button>
+    <div id="actions" style="margin-top: 20px; display: flex; justify-content: center; gap: 32px;">
         <button id="passBtn" onclick="pass()" disabled>PASS</button>
+        <button id="playBtn" onclick="playCards()" disabled>出牌</button>
     </div>
     
     <div id="readyArea" style="display:none; margin-top:20px;">
